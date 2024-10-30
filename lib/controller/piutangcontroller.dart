@@ -157,6 +157,7 @@ class PiutangController {
 
       final bayarPiutang = bayarPiutangModel.toMap();
       bayarPiutang['userId'] = _auth.currentUser!.uid;
+      bayarPiutang['isConfirmed'] = false;
       final DocumentReference docRef =
           await pembayaranCollection.add(bayarPiutang);
       final String docID = docRef.id;
@@ -185,6 +186,29 @@ class PiutangController {
     } catch (e) {
       print('Error adding bayar piutang: $e');
       rethrow;
+    }
+  }
+
+  Future<bool> confirmPayment(String pembayaranId, String userId) async {
+    try {
+      final paymentDoc =
+          await _firestore.collection('pembayaran').doc(pembayaranId).get();
+      if (paymentDoc.exists) {
+        final data = paymentDoc.data();
+        if (data != null && data['userId'] == userId) {
+          return false;
+        }
+      }
+
+      // Simpan konfirmasi pembayaran di Firestore
+      await _firestore.collection('pembayaran').doc(pembayaranId).update({
+        'isConfirmed': true,
+        'confirmedBy': userId,
+      });
+      return true;
+    } catch (e) {
+      print('Error confirming payment: $e');
+      return false;
     }
   }
 

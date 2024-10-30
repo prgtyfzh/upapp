@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -31,6 +32,7 @@ class DetailHutang extends StatefulWidget {
 
 class _DetailHutangState extends State<DetailHutang> {
   final HutangController _hutangController = HutangController();
+  String? currentUserId;
 
   String userName = 'Loading...';
   String _sisaHutang = '0';
@@ -42,6 +44,7 @@ class _DetailHutangState extends State<DetailHutang> {
     super.initState();
     setState(() {});
     _loadData();
+    currentUserId = FirebaseAuth.instance.currentUser?.uid;
   }
 
   Future<void> _loadData() async {
@@ -222,6 +225,7 @@ class _DetailHutangState extends State<DetailHutang> {
                 stream: FirebaseFirestore.instance
                     .collection('pembayaran')
                     .where('hutangId', isEqualTo: widget.hutangId)
+                    .orderBy('tanggalBayar', descending: false)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -250,6 +254,8 @@ class _DetailHutangState extends State<DetailHutang> {
                       final nominalBayar = data['nominalBayar'] ?? 0;
                       final tanggalBayar = data['tanggalBayar'] ?? 'N/A';
                       final userId = data['userId'];
+                      final pembayaranId = documents[index].id;
+                      final isConfirmed = data['isConfirmed'] ?? false;
 
                       return FutureBuilder<String>(
                         future: _fetchUsername(userId),
@@ -279,8 +285,79 @@ class _DetailHutangState extends State<DetailHutang> {
                                   Text(
                                     'Penginput: $username',
                                   ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Status: ',
+                                        style: TextStyle(color: Colors.black),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: isConfirmed
+                                              ? Colors.green
+                                              : Colors.red,
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          isConfirmed
+                                              ? "Telah Dikonfirmasi"
+                                              : "Belum Dikonfirmasi",
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
+                              trailing: !isConfirmed && currentUserId != userId
+                                  ? PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert),
+                                      onSelected: (String value) async {
+                                        if (value == 'konfirmasi') {
+                                          bool success = await _hutangController
+                                              .confirmPayment(
+                                            pembayaranId,
+                                            currentUserId!,
+                                          );
+
+                                          if (success) {
+                                            setState(() {
+                                              _loadData();
+                                            });
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      'Pembayaran berhasil dikonfirmasi')),
+                                            );
+                                          } else {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                  content: Text(
+                                                      'Gagal mengonfirmasi pembayaran')),
+                                            );
+                                          }
+                                        }
+                                      },
+                                      itemBuilder: (BuildContext context) {
+                                        return [
+                                          const PopupMenuItem<String>(
+                                            value: 'konfirmasi',
+                                            child:
+                                                Text('Konfirmasi Pembayaran'),
+                                          ),
+                                        ];
+                                      },
+                                    )
+                                  : null,
                             ),
                           );
                         },
