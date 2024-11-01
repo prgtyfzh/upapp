@@ -9,6 +9,7 @@ class PembayaranModel {
   String? uId;
   final String nominalBayar;
   final String tanggalBayar;
+  bool isConfirmed;
   PembayaranModel({
     this.pembayaranId,
     this.hutangId,
@@ -16,21 +17,26 @@ class PembayaranModel {
     this.uId,
     required this.nominalBayar,
     required this.tanggalBayar,
+    this.isConfirmed = false,
   });
 
   PembayaranModel copyWith({
     ValueGetter<String?>? pembayaranId,
     ValueGetter<String?>? hutangId,
     ValueGetter<String?>? piutangId,
+    ValueGetter<String?>? uId,
     String? nominalBayar,
     String? tanggalBayar,
+    bool? isConfirmed,
   }) {
     return PembayaranModel(
       pembayaranId: pembayaranId != null ? pembayaranId() : this.pembayaranId,
       hutangId: hutangId != null ? hutangId() : this.hutangId,
       piutangId: piutangId != null ? piutangId() : this.piutangId,
+      uId: uId != null ? uId() : this.uId,
       nominalBayar: nominalBayar ?? this.nominalBayar,
       tanggalBayar: tanggalBayar ?? this.tanggalBayar,
+      isConfirmed: isConfirmed ?? this.isConfirmed,
     );
   }
 
@@ -39,8 +45,10 @@ class PembayaranModel {
       'pembayaranId': pembayaranId,
       'hutangId': hutangId,
       'piutangId': piutangId,
+      'uId': uId,
       'nominalBayar': nominalBayar,
       'tanggalBayar': tanggalBayar,
+      'isConfirmed': isConfirmed,
     };
   }
 
@@ -49,8 +57,10 @@ class PembayaranModel {
       pembayaranId: map['pembayaranId'],
       hutangId: map['hutangId'],
       piutangId: map['piutangId'],
+      uId: map['uId'],
       nominalBayar: map['nominalBayar'] ?? '',
       tanggalBayar: map['tanggalBayar'] ?? '',
+      isConfirmed: map['isConfirmed'] ?? false,
     );
   }
 
@@ -61,7 +71,7 @@ class PembayaranModel {
 
   @override
   String toString() {
-    return 'PembayaranModel(pembayaranId: $pembayaranId, hutangId: $hutangId, piutangId: $piutangId, nominalBayar: $nominalBayar, tanggalBayar: $tanggalBayar)';
+    return 'PembayaranModel(pembayaranId: $pembayaranId, hutangId: $hutangId, piutangId: $piutangId, uId: $uId, nominalBayar: $nominalBayar, tanggalBayar: $tanggalBayar, isConfirmed: $isConfirmed)';
   }
 
   @override
@@ -72,8 +82,10 @@ class PembayaranModel {
         other.pembayaranId == pembayaranId &&
         other.hutangId == hutangId &&
         other.piutangId == piutangId &&
+        other.uId == uId &&
         other.nominalBayar == nominalBayar &&
-        other.tanggalBayar == tanggalBayar;
+        other.tanggalBayar == tanggalBayar &&
+        other.isConfirmed == isConfirmed;
   }
 
   @override
@@ -81,7 +93,9 @@ class PembayaranModel {
     return pembayaranId.hashCode ^
         hutangId.hashCode ^
         piutangId.hashCode ^
+        uId.hashCode ^
         nominalBayar.hashCode ^
-        tanggalBayar.hashCode;
+        tanggalBayar.hashCode ^
+        isConfirmed.hashCode;
   }
 }

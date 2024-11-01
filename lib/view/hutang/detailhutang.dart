@@ -38,12 +38,14 @@ class _DetailHutangState extends State<DetailHutang> {
   String _sisaHutang = '0';
   String _totalBayar = '0';
   double _progress = 0.0;
+  bool _hasPendingPayments = false;
 
   @override
   void initState() {
     super.initState();
     setState(() {});
     _loadData();
+    _listenToConfirmationChanges();
     currentUserId = FirebaseAuth.instance.currentUser?.uid;
   }
 
@@ -51,6 +53,36 @@ class _DetailHutangState extends State<DetailHutang> {
     await _loadTotalBayar();
     await _loadSisaHutang();
     _calculateProgress();
+    await _loadPendingPayments();
+  }
+
+  void _listenToConfirmationChanges() {
+    FirebaseFirestore.instance
+        .collection('pembayaran')
+        .where('hutangId', isEqualTo: widget.hutangId)
+        .snapshots()
+        .listen((snapshot) {
+      bool hasPending = snapshot.docs.any((doc) => doc['isConfirmed'] == false);
+
+      if (hasPending != _hasPendingPayments) {
+        setState(() {
+          _hasPendingPayments = hasPending;
+        });
+      }
+      _loadData();
+    });
+  }
+
+  Future<void> _loadPendingPayments() async {
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('pembayaran')
+        .where('hutangId', isEqualTo: widget.hutangId)
+        .where('isConfirmed', isEqualTo: false)
+        .get();
+
+    setState(() {
+      _hasPendingPayments = querySnapshot.docs.isNotEmpty;
+    });
   }
 
   Future<void> _loadSisaHutang() async {
@@ -225,7 +257,7 @@ class _DetailHutangState extends State<DetailHutang> {
                 stream: FirebaseFirestore.instance
                     .collection('pembayaran')
                     .where('hutangId', isEqualTo: widget.hutangId)
-                    .orderBy('tanggalBayar', descending: false)
+                    .orderBy('tanggalBayar', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -254,7 +286,7 @@ class _DetailHutangState extends State<DetailHutang> {
                       final nominalBayar = data['nominalBayar'] ?? 0;
                       final tanggalBayar = data['tanggalBayar'] ?? 'N/A';
                       final userId = data['userId'];
-                      final pembayaranId = documents[index].id;
+
                       final isConfirmed = data['isConfirmed'] ?? false;
 
                       return FutureBuilder<String>(
@@ -316,48 +348,6 @@ class _DetailHutangState extends State<DetailHutang> {
                                   ),
                                 ],
                               ),
-                              trailing: !isConfirmed && currentUserId != userId
-                                  ? PopupMenuButton<String>(
-                                      icon: const Icon(Icons.more_vert),
-                                      onSelected: (String value) async {
-                                        if (value == 'konfirmasi') {
-                                          bool success = await _hutangController
-                                              .confirmPayment(
-                                            pembayaranId,
-                                            currentUserId!,
-                                          );
-
-                                          if (success) {
-                                            setState(() {
-                                              _loadData();
-                                            });
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                  content: Text(
-                                                      'Pembayaran berhasil dikonfirmasi')),
-                                            );
-                                          } else {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                  content: Text(
-                                                      'Gagal mengonfirmasi pembayaran')),
-                                            );
-                                          }
-                                        }
-                                      },
-                                      itemBuilder: (BuildContext context) {
-                                        return [
-                                          const PopupMenuItem<String>(
-                                            value: 'konfirmasi',
-                                            child:
-                                                Text('Konfirmasi Pembayaran'),
-                                          ),
-                                        ];
-                                      },
-                                    )
-                                  : null,
                             ),
                           );
                         },
@@ -376,17 +366,37 @@ class _DetailHutangState extends State<DetailHutang> {
                       padding: const EdgeInsets.symmetric(horizontal: 8.0),
                       child: TextButton(
                         onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FormBayar(
-                                hutangId: widget.hutangId,
-                                sisaHutang: _sisaHutang.toString(),
+                          if (_hasPendingPayments) {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Peringatan'),
+                                content: const Text(
+                                  'Ada pembayaran yang belum dikonfirmasi. Silakan konfirmasi sebelum menambahkan pembayaran baru.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text('OK'),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ).then((_) {
-                            _loadData();
-                          });
+                            );
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => FormBayar(
+                                  hutangId: widget.hutangId,
+                                  sisaHutang: _sisaHutang.toString(),
+                                ),
+                              ),
+                            ).then((_) {
+                              _loadData();
+                            });
+                          }
                         },
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(

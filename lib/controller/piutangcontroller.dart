@@ -97,10 +97,12 @@ class PiutangController {
       bayarPiutang.docs.forEach((doc) {
         PembayaranModel bayarPiutangModel =
             PembayaranModel.fromMap(doc.data() as Map<String, dynamic>);
-        totalBayar += double.parse(bayarPiutangModel.nominalBayar
-                .replaceAll('.', '')
-                .replaceAll(',', '')) ??
-            0.0;
+        if (bayarPiutangModel.isConfirmed) {
+          totalBayar += double.parse(bayarPiutangModel.nominalBayar
+                  .replaceAll('.', '')
+                  .replaceAll(',', '')) ??
+              0.0;
+        }
       });
 
       String formattedTotalBayar =
@@ -157,7 +159,7 @@ class PiutangController {
 
       final bayarPiutang = bayarPiutangModel.toMap();
       bayarPiutang['userId'] = _auth.currentUser!.uid;
-      bayarPiutang['isConfirmed'] = false;
+      bayarPiutang['isConfirmed'] = true;
       final DocumentReference docRef =
           await pembayaranCollection.add(bayarPiutang);
       final String docID = docRef.id;
@@ -168,6 +170,7 @@ class PiutangController {
         hutangId: bayarPiutangModel.piutangId,
         nominalBayar: bayarPiutangModel.nominalBayar,
         tanggalBayar: bayarPiutangModel.tanggalBayar,
+        isConfirmed: true,
       );
 
       await docRef.update(updatedBayarPiutangModel.toMap());
@@ -200,7 +203,6 @@ class PiutangController {
         }
       }
 
-      // Simpan konfirmasi pembayaran di Firestore
       await _firestore.collection('pembayaran').doc(pembayaranId).update({
         'isConfirmed': true,
         'confirmedBy': userId,

@@ -224,7 +224,7 @@ class _DetailPiutangState extends State<DetailPiutang> {
                 stream: FirebaseFirestore.instance
                     .collection('pembayaran')
                     .where('piutangId', isEqualTo: widget.piutangId)
-                    .orderBy('tanggalBayar', descending: false)
+                    .orderBy('tanggalBayar', descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -318,30 +318,61 @@ class _DetailPiutangState extends State<DetailPiutang> {
                                       icon: const Icon(Icons.more_vert),
                                       onSelected: (String value) async {
                                         if (value == 'konfirmasi') {
-                                          bool success =
-                                              await _piutangController
-                                                  .confirmPayment(
-                                            pembayaranId,
-                                            currentUserId!,
+                                          bool? isConfirmed =
+                                              await showDialog<bool>(
+                                            context: context,
+                                            builder: (BuildContext context) {
+                                              return AlertDialog(
+                                                title: const Text(
+                                                    'Konfirmasi Pembayaran'),
+                                                content: const Text(
+                                                    'Apakah Anda yakin ingin mengonfirmasi pembayaran ini?'),
+                                                actions: <Widget>[
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop(false);
+                                                    },
+                                                    child: const Text('Batal'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () {
+                                                      Navigator.of(context)
+                                                          .pop(true);
+                                                    },
+                                                    child: const Text('Ya'),
+                                                  ),
+                                                ],
+                                              );
+                                            },
                                           );
 
-                                          if (success) {
-                                            setState(() {
-                                              _loadData();
-                                            });
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                  content: Text(
-                                                      'Pembayaran berhasil dikonfirmasi')),
+                                          if (isConfirmed == true) {
+                                            bool success =
+                                                await _piutangController
+                                                    .confirmPayment(
+                                              pembayaranId,
+                                              currentUserId!,
                                             );
-                                          } else {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(
-                                              const SnackBar(
-                                                  content: Text(
-                                                      'Gagal mengonfirmasi pembayaran')),
-                                            );
+
+                                            if (success) {
+                                              setState(() {
+                                                _loadData();
+                                              });
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content: Text(
+                                                        'Pembayaran berhasil dikonfirmasi')),
+                                              );
+                                            } else {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content: Text(
+                                                        'Gagal mengonfirmasi pembayaran')),
+                                              );
+                                            }
                                           }
                                         }
                                       },

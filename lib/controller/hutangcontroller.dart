@@ -97,10 +97,12 @@ class HutangController {
       bayarHutang.docs.forEach((doc) {
         PembayaranModel bayarHutangModel =
             PembayaranModel.fromMap(doc.data() as Map<String, dynamic>);
-        totalBayar += double.tryParse(bayarHutangModel.nominalBayar
-                .replaceAll('.', '')
-                .replaceAll(',', '')) ??
-            0.0;
+        if (bayarHutangModel.isConfirmed) {
+          totalBayar += double.tryParse(bayarHutangModel.nominalBayar
+                  .replaceAll('.', '')
+                  .replaceAll(',', '')) ??
+              0.0;
+        }
       });
 
       String formattedTotalBayar =
@@ -154,9 +156,12 @@ class HutangController {
         throw Exception('Nominal bayar tidak boleh melebihi sisa hutang');
       }
 
+      final isConnected = await isConnectedPayment(bayarHutangModel.hutangId!);
+      bayarHutangModel.isConfirmed = isConnected ? false : true;
+
       final bayarHutang = bayarHutangModel.toMap();
       bayarHutang['userId'] = _auth.currentUser!.uid;
-      bayarHutang['isConfirmed'] = false;
+      bayarHutang['isConfirmed'] = bayarHutangModel.isConfirmed;
       final DocumentReference docRef =
           await pembayaranCollection.add(bayarHutang);
       final String docID = docRef.id;
@@ -167,21 +172,10 @@ class HutangController {
         piutangId: bayarHutangModel.hutangId,
         nominalBayar: bayarHutangModel.nominalBayar,
         tanggalBayar: bayarHutangModel.tanggalBayar,
+        isConfirmed: bayarHutangModel.isConfirmed,
       );
 
       await docRef.update(updatedPembayaranModel.toMap());
-
-      String totalBayarStr =
-          await getTotalNominalBayar(bayarHutangModel.hutangId!);
-      String nominalPinjam2 =
-          await getNominalPinjam(bayarHutangModel.hutangId!);
-      String updatedSisaHutangStr = await calculateTotalSisaHutang(
-          bayarHutangModel.hutangId!, nominalPinjam2);
-
-      await hutangCollection.doc(bayarHutangModel.hutangId).update({
-        'totalBayar': totalBayarStr,
-        'sisaHutang': updatedSisaHutangStr,
-      });
     } catch (e) {
       print('Error adding bayar hutang: $e');
       rethrow;
@@ -206,6 +200,20 @@ class HutangController {
       return true;
     } catch (e) {
       print('Error confirming payment: $e');
+      return false;
+    }
+  }
+
+  Future<bool> isConnectedPayment(String hutangId) async {
+    try {
+      final piutangSnapshot = await FirebaseFirestore.instance
+          .collection('piutang')
+          .where('piutangId', isEqualTo: hutangId)
+          .get();
+
+      return piutangSnapshot.docs.isNotEmpty;
+    } catch (e) {
+      print("Error checking connection: $e");
       return false;
     }
   }
